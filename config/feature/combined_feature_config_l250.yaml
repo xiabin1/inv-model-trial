@@ -1,0 +1,25 @@
+# b1542_l250 profile (2026-10-08): b1542 features, trained on the S&P 500 / Nasdaq-100 stocks plus liquid US
+# stocks with >= $250M median daily dollar volume (src/symbols/liquidity_universe.py); picks from the
+# current stocks only, max 4 per sector. Data versions l50_* keep the experiment's history (scripts/experiments/).
+version:
+  daily_features: l50_v2
+  minute_features: l50_b1542_v1
+  labels: l50_mini_v1
+  combined_features: l250_b1542_v1
+schedule:
+  start_date: '2024-10-01'
+  end_date: '2026-10-07'
+storage:
+  backend: s3
+  local:
+    root: data
+  s3:
+    bucket: portfolio-calc-platform-dev
+    prefix: financial/tp1/data
+    region: us-east-2
+  input:
+    minute_features: features/minutes
+    daily_features: features/daily
+    labels: labels
+  output:
+    features: features/combined

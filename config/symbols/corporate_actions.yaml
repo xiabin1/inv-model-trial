@@ -1,0 +1,88 @@
+# Corporate actions applied to raw Databento prices when they are loaded
+# (src/data/raw/corporate_actions.py, src/data/raw/ticker_renames.py).
+# Stored raw files are never changed.
+#
+# actions: each entry
+#   symbol:   ticker as used in the pipeline
+#   date:     ex-date = first trading day at the new price
+#   split:    new shares per old share (10-for-1 -> 10; 1-for-5 reverse -> 0.2)
+#   spinoff:  {child, ratio, parent_open, child_open}: the factor is computed from the ex-date opens
+#             (parent_open / (parent_open + ratio x child_open); see spinoff_factor)
+#   factor:   instead of split/spinoff, a direct price multiplier for earlier bars
+#   verified: true once checked against an official source
+#   source:   where it was checked (company release / SEC filing / exchange notice)
+#
+# Spin-offs use the ex-date OPENING prices: the strategy holds from 15:58 to the next open, so the
+# adjusted overnight move into the ex-date equals what a holder really got (parent + child at the open).
+#
+# Only entries with verified: true (and no rejected: true) are applied. New events are proposed
+# automatically as pending entries (verified: false) and announced in Telegram with Verified / Reject
+# buttons; the stock is excluded from the picks until then (src/corporate_action_flow.py).
+#   rejected: true  marks a false alarm (e.g. a real price move); kept so it is not proposed again
+#   found:          date the entry was proposed, found_by: what found it
+# Find candidates by hand with:
+#   python3 scripts/detect_corporate_actions.py
+# Small spin-offs (a few % of the parent) do not show up there: also check symbols
+# that first appear mid-history (see docs/known_issues/corporate_actions.md).
+#
+# Not recorded on purpose (see docs/known_issues/corporate_actions.md):
+#   NVR 2026-03-17, SHW 2025-06-10, URI 2025-08-11, COR 2025-04-07, TDY 2025-06-30,
+#   IT 2025-06-11: single bad price prints, not corporate actions.
+#   MRNA 2026-08-19 (+84% overnight): real price move; MRNA has never split (checked by user).
+
+actions:
+  # Splits and reverse splits (ratio and first split-adjusted session checked 2026-09-28)
+  - {symbol: FAST, date: 2025-05-22, split: 2, verified: true, source: "Fastenal release 2025-04-23: 2-for-1, split-adjusted trading on or about 2025-05-22"}
+  - {symbol: ORLY, date: 2025-06-10, split: 15, verified: true, source: "O'Reilly 8-K / split FAQ: 15-for-1, post-split trading at open 2025-06-10"}
+  - {symbol: NFLX, date: 2025-11-17, split: 10, verified: true, source: "Netflix 8-K 2025-10-30: 10-for-1, split-adjusted trading 2025-11-17"}
+  - {symbol: NOW, date: 2025-12-18, split: 5, verified: true, source: "ServiceNow 8-K 2025-12-05: 5-for-1, split-adjusted trading on or about 2025-12-18"}
+  - {symbol: TPL, date: 2025-12-23, split: 3, verified: true, source: "Texas Pacific Land 8-K / MIAX alert 57821: 3-for-1, split-adjusted trading 2025-12-23"}
+  - {symbol: AMCR, date: 2026-01-15, split: 0.2, verified: true, source: "Amcor 8-K 2026-01: 1-for-5 reverse, split-adjusted trading on NYSE 2026-01-15"}
+  - {symbol: BKNG, date: 2026-04-06, split: 25, verified: true, source: "Booking Holdings 8-K 2026-02-18: 25-for-1, split-adjusted trading 2026-04-06"}
+  - {symbol: KLAC, date: 2026-06-12, split: 10, verified: true, source: "KLA 8-K 2026-06: 10-for-1, split-adjusted trading at open 2026-06-12"}
+  - {symbol: DD, date: 2026-06-24, split: 0.333333, verified: true, source: "DuPont release: 1-for-3 reverse, split-adjusted trading on NYSE 2026-06-24"}
+  - {symbol: CRWD, date: 2026-07-02, split: 4, verified: true, source: "CrowdStrike 8-K 2026-06-03: 4-for-1, split-adjusted trading 2026-07-02"}
+  - {symbol: MNST, date: 2026-08-11, split: 2, verified: true, source: "Monster Beverage 8-K 2026-07-08: 2-for-1, split-adjusted trading 2026-08-11"}
+  - {symbol: APH, date: 2026-09-03, split: 2, verified: true, source: "Amphenol release 2026-08-06: 2-for-1 stock dividend, distributed 2026-09-02"}
+  - {symbol: CVNA, date: 2026-05-08, split: 5, verified: true, source: "checked by user 2026-09-28: 5-for-1 forward split, May 2026"}
+  - {symbol: HON, date: 2026-06-29, split: 0.5, verified: true, source: "Honeywell Aerospace 8-K 2026-06-29: 1-for-2 reverse split effective 2026-06-29 (same day as the HONA spin-off below)"}
+
+  # 2024 splits (added 2026-10-02 for the history extended to 2024-07): widely reported splits whose
+  # ratio and first split-adjusted session match the exact overnight price ratio in the session bars
+  - {symbol: AVGO, date: 2024-07-15, split: 10, verified: true, source: "Broadcom 10-for-1; overnight ratio 0.0998 (detector, 2026-10-02)"}
+  - {symbol: CTAS, date: 2024-09-12, split: 4, verified: true, source: "Cintas 4-for-1; overnight ratio 0.2508"}
+  - {symbol: DECK, date: 2024-09-17, split: 6, verified: true, source: "Deckers 6-for-1; overnight ratio 0.1669"}
+  - {symbol: SMCI, date: 2024-10-01, split: 10, verified: true, source: "Super Micro 10-for-1; overnight ratio 0.1002"}
+  - {symbol: LRCX, date: 2024-10-03, split: 10, verified: true, source: "Lam Research 10-for-1; overnight ratio 0.0982"}
+  - {symbol: ANET, date: 2024-12-04, split: 4, verified: true, source: "Arista 4-for-1; overnight ratio 0.2554"}
+  - {symbol: ETR, date: 2024-12-13, split: 2, verified: true, source: "Entergy 2-for-1; overnight ratio 0.4994"}
+  - {symbol: PANW, date: 2024-12-16, split: 2, verified: true, source: "Palo Alto Networks 2-for-1; overnight ratio 0.5052"}
+  - {symbol: TSCO, date: 2024-12-20, split: 5, verified: true, source: "Tractor Supply 5-for-1; overnight ratio 0.1998"}
+
+  # Spin-offs (terms from the filings; P and C from session bars / Databento XNAS.BASIC 1m)
+  - {symbol: J, date: 2024-09-30, spinoff: {child: AMTM, ratio: 1, parent_open: 128.707, child_open: 26.25}, verified: true, source: "Jacobs 8-K 2024-09-27: 1 SpinCo (became Amentum, AMTM) per J share; ex-date opens from XNAS.BASIC"}
+  - {symbol: WDC, date: 2025-02-24, spinoff: {child: SNDK, ratio: 0.333333, parent_open: 52.61, child_open: 52.7}, verified: true, source: "Western Digital 8-K: 1 SNDK per 3 WDC; ex-date opens from XNAS.BASIC"}
+  - {symbol: HON, date: 2025-10-30, spinoff: {child: SOLS, ratio: 0.25, parent_open: 202.14, child_open: 48.6}, verified: true, source: "Solstice 10-Q: 1 SOLS per 4 HON, regular-way 2025-10-30; ex-date opens from XNAS.BASIC"}
+  - {symbol: DD, date: 2025-11-03, spinoff: {child: Q, ratio: 0.5, parent_open: 33.69, child_open: 98.02}, verified: true, source: "DuPont: 1 Q (Qnity) per 2 DD, distributed 2025-11-01; ex-date opens from XNAS.BASIC"}
+  - {symbol: CMCSA, date: 2026-01-05, spinoff: {child: VSNT, ratio: 0.04, parent_open: 27.79, child_open: 45.17}, verified: true, source: "Comcast 8-K / Nasdaq ECA2025-683: 1 VSNT per 25 CMCSA, ex-date 2026-01-05; ex-date opens from XNAS.BASIC"}
+  - {symbol: FDX, date: 2026-06-01, spinoff: {child: FDXF, ratio: 0.5, parent_open: 331.06, child_open: 165}, verified: true, source: "FedEx Freight 8-K 2026-06-01: 1 FDXF per 2 FDX; ex-date opens from XNAS.BASIC"}
+  - {symbol: HON, date: 2026-06-29, spinoff: {child: HONA, ratio: 1, parent_open: 240.07, child_open: 229.98}, verified: true, source: "Honeywell Aerospace 8-K: 1 HONA per 2 pre-split HON; ex-date opens from XNAS.BASIC (ratio per post-split share; the 1-for-2 reverse split is the entry above)"}
+  - {symbol: CTVA, date: 2026-10-01, spinoff: {child: VYLR, ratio: 1, parent_open: 14.44, child_open: 66}, verified: true, source: "Corteva 8-K: 1 Vylor (VYLR, seed business) per CTVA share, regular-way 2026-10-01; ex-date opens from XNAS.BASIC"}
+  - {symbol: SPGI, date: 2026-07-01, spinoff: {child: MBGL, ratio: 1, parent_open: 397, child_open: 20.3}, verified: true, source: "S&P Global 8-K 2026-07: 1 MBGL per SPGI; ex-date opens from XNAS.BASIC"}
+
+  # Proposed by the detectors (src/corporate_action_flow.py); appended below this line
+  - {symbol: APTV, date: 2026-04-01, spinoff: {child: VGNT, ratio: 0.333333, parent_open: 60.16, child_open: 27.73}, verified: true, found: 2026-10-06, found_by: "EDGAR audit + price gap", source: "SEC 8-K"}
+  - {symbol: BDX, date: 2026-02-10, spinoff: {child: WAT, ratio: 0.135, parent_open: 165.2, child_open: 327.82}, verified: true, found: 2026-10-06, found_by: "EDGAR audit + price gap", source: "SEC 8-K"}
+  - {symbol: FTV, date: 2025-06-30, spinoff: {child: RAL, ratio: 0.333333, parent_open: 52.39, child_open: 50.02}, verified: true, found: 2026-10-06, found_by: "EDGAR audit + price gap", source: "SEC 8-K"}
+
+# Ticker changes (src/data/raw/ticker_renames.py): up to and including `until`, bars under
+# `old` are the company now traded as `symbol`, and bars under `symbol` are dropped
+# (another security used the ticker, e.g. BNY, or nothing traded under it).
+renames:
+  - {symbol: FISV, old: FI, until: 2025-11-10, source: "Fiserv 8-K: NYSE FI trading ended 2025-11-10, Nasdaq FISV from 2025-11-11"}
+  - {symbol: PSKY, old: PARA, until: 2025-08-06, source: "Nasdaq ECA2025-414: merger closed before open 2025-08-07; 1 PSKY Class B per PARA Class B"}
+  - {symbol: MRSH, old: MMC, until: 2026-01-13, source: "Marsh McLennan release: NYSE symbol MRSH from 2026-01-14, CUSIP unchanged"}
+  - {symbol: P, old: PSTG, until: 2026-04-16, source: "Everpure (formerly Pure Storage) release: NYSE symbol P from 2026-04-17"}
+  - {symbol: BNY, old: BK, until: 2026-05-20, source: "BNY release 2026-05-11: NYSE symbol BNY from 2026-05-21; 'BNY' before that was a different ~$10 security"}
+  - {symbol: ECHO, old: SATS, until: 2026-06-23, source: "EchoStar release: Nasdaq symbol ECHO from 2026-06-24"}
+  - {symbol: VMRK, old: EQR, until: 2026-08-17, source: "Vivmark 8-K 2026-08-17: Equity Residential (surviving entity, renamed) trades as VMRK from 2026-08-18; AVB holders got 2.793 shares each"}

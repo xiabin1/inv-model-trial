@@ -1,0 +1,23 @@
+# Experiment liquid50 (scripts/experiments/liquid50.py); generated, not used by live jobs
+version:
+  daily_features: l50_v2
+  minute_features: l50_b1542_v1
+  labels: l50_mini_v1
+  combined_features: l50_b1542_v1
+schedule:
+  start_date: '2024-10-01'
+  end_date: '2026-10-02'
+storage:
+  backend: s3
+  local:
+    root: data
+  s3:
+    bucket: portfolio-calc-platform-dev
+    prefix: financial/tp1/data
+    region: us-east-2
+  input:
+    minute_features: features/minutes
+    daily_features: features/daily
+    labels: labels
+  output:
+    features: features/combined

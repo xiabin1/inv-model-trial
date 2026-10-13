@@ -1,0 +1,5 @@
+CRON_TZ=America/New_York
+0 8 * * * /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && DATE=$(date +\%Y\%m\%d) && python -m src.symbol_generate --start-date "$DATE" --end-date "$DATE" >> logs/symbol_generate.log 2>&1'
+5 8 * * * /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && DATE=$(date -d yesterday +\%Y\%m\%d) && python -m src.pull.daily_pull --start-date "$DATE" --end-date "$DATE" >> logs/daily_pull.log 2>&1'
+50 15 * * 1-5 /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && python -m src.pull.minutes_pull --rolling >> logs/minutes_pull.log 2>&1'
+15 16 * * 1-5 /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && python -m src.pull.minutes_pull --rolling >> logs/minutes_pull.log 2>&1'

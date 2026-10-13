@@ -1,0 +1,24 @@
+version:
+  daily_features: v2
+  minute_features: v3
+  labels: v3
+  combined_features: v3
+
+schedule:
+  start_date: 2025-06-01
+  end_date: 2026-09-25
+
+storage:
+  backend: s3
+  local:
+    root: data
+  s3:
+    bucket: portfolio-calc-platform-dev
+    prefix: financial/tp1/data
+    region: us-east-2
+  input:
+    minute_features: features/minutes
+    daily_features: features/daily
+    labels: labels
+  output:
+    features: features/combined

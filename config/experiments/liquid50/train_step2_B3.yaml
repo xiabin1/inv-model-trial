@@ -1,0 +1,85 @@
+# Experiment liquid50 (scripts/experiments/liquid50.py); generated, not used by live jobs
+version:
+  features: l250_b1542_v1
+  evaluation: step2_B3
+schedule:
+  train_period:
+  - 2025-06-01
+  - 2026-04-27
+  verification_period:
+  - 2026-04-28
+  - 2026-09-24
+model:
+  type: lightgbm
+  path: models/experiments/step2_B3_single.joblib
+  label:
+    method: top_share
+    top_share: 0.2
+    threshold: 0.01
+    vol_adjust: true
+    vol_window: 20
+  params:
+    n_estimators: 200
+    learning_rate: 0.05
+    num_leaves: 31
+    max_depth: -1
+    min_child_samples: 20
+    subsample: 0.8
+    colsample_bytree: 0.8
+    reg_alpha: 0.0
+    reg_lambda: 0.0
+    class_weight: balanced
+    random_state: 3
+    n_jobs: -1
+    verbosity: -1
+    subsample_freq: 1
+  test_share: 0.2
+prediction:
+  period: verification
+  top_n: 10
+evaluation:
+  top_n: 10
+  cost_per_trade: 0.001
+live:
+  variant: weekly_plain_label
+  model_path: models/experiments/step2_B3.joblib
+  top_n: 10
+  min_fresh_share: 0.9
+  gap_guard_max_move: 0.4
+  grace_seconds: 3
+  max_wait_seconds: 45
+  data_delay_minutes: 15
+paper:
+  top_n: 10
+  report_sizes:
+  - 5
+  - 10
+  capital_per_day: 100000
+  sim_model_path: models/paper_sim_classifier_b1542.joblib
+walk_forward:
+  first_test_date: 2025-12-01
+  final_holdout_from: 2026-08-01
+  top_n:
+  - 5
+  - 10
+  - 30
+  - 50
+  variants:
+  - name: weekly_plain_label_from2025-06
+    retrain_every: week
+    train_window: expanding
+    vol_adjust: false
+    first_test_date: 2025-06-02
+storage:
+  backend: s3
+  local:
+    root: data
+  s3:
+    bucket: portfolio-calc-platform-dev
+    prefix: financial/tp1/data
+    region: us-east-2
+  input:
+    features: features/combined
+  output:
+    evaluation: evaluation
+    predictions: predictions

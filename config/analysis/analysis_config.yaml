@@ -1,0 +1,29 @@
+analysis:
+  formula: "Ref($open, -1) / $close - 1"
+  threshold: 0.03
+  comparison: greater_or_equal
+  top_n: 100
+  minimum_occurrences: 1
+
+schedule:
+  start_date: 2026-01-01
+  end_date: 2026-08-21
+
+input_storage:
+  backend: local
+  data_path: data/ohlcv.csv
+  local:
+    root: .
+  s3:
+    bucket: ""
+    prefix: stock-pipeline
+    region: us-east-1
+
+output_storage:
+  backend: local
+  local:
+    root: data/analysis
+  s3:
+    bucket: ""
+    prefix: stock-pipeline/data/analysis
+    region: us-east-1

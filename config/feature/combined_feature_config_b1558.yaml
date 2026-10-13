@@ -1,0 +1,28 @@
+# Cutoff experiment (b1558): XNAS.BASIC minute features with bars to 15:58; labels = next
+# XNAS.BASIC open / 15:57 close (labels/mini_v1, the price actually traded at 15:58). Copy of combined_feature_config_mini.yaml.
+# Mini profile (src/live.py PROFILES['mini']): minute features from EQUS.MINI, labels and
+# daily features from XNAS.BASIC. Copy of combined_feature_config.yaml with the differences marked 'mini'.
+version:
+  daily_features: v2
+  minute_features: b1558_v1
+  labels: mini_v1
+  combined_features: b1558_v1
+
+schedule:
+  start_date: 2024-10-01   # mini: daily features need ~3 months of XNAS.BASIC history (from 2024-07)
+  end_date: 2026-10-02
+
+storage:
+  backend: s3
+  local:
+    root: data
+  s3:
+    bucket: portfolio-calc-platform-dev
+    prefix: financial/tp1/data
+    region: us-east-2
+  input:
+    minute_features: features/minutes
+    daily_features: features/daily
+    labels: labels
+  output:
+    features: features/combined

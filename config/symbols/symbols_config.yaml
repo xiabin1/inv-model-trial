@@ -1,0 +1,20 @@
+version:
+  data: v1
+
+selection:
+  symbol_count: all
+  universe: both
+  random_state: 12
+
+schedule:
+  start_date: 2025-01-01
+  end_date: 2026-09-23
+
+storage:
+  backend: s3
+  local:
+    root: data/symbols
+  s3:
+    bucket: portfolio-calc-platform-dev
+    prefix: financial/tp1/data/symbols
+    region: us-east-2

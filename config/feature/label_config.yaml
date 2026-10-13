@@ -1,0 +1,28 @@
+version:
+  labels: v3
+  raw_data: v1
+  minute_features: v3
+
+label:
+  # Return from day D's 15:57 price (last 1m close before the 15:58 cutoff) to the next session's open; training turns it
+  # into 0/1 (train_model.yaml: model.label).
+  field: "Ref($open, -1) / $close_cutoff - 1"
+  column: label
+
+schedule:
+  start_date: 2025-06-01
+  end_date: 2026-09-25
+
+storage:
+  backend: s3
+  local:
+    root: data
+  s3:
+    bucket: portfolio-calc-platform-dev
+    prefix: financial/tp1/data
+    region: us-east-2
+  input:
+    raw: raw/session_daily   # regular-session daily bars (python -m src.pull.session_bars)
+    minute_features: features/minutes
+  output:
+    labels: labels

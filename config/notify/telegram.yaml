@@ -1,0 +1,16 @@
+# Telegram messages for the daily trades (src/notify/telegram.py).
+# The bot token and chat id are secrets: they are read from .env, never stored here.
+
+enabled: true
+token_env: TELEGRAM_BOT_TOKEN   # from @BotFather
+chat_id_env: TELEGRAM_CHAT_ID   # your chat with the bot (python -m src.notify.telegram chat-id)
+
+# Where buy/sell results and the P&L summary come from:
+#   ibkr   - real fills in the IBKR paper account (data/paper/ibkr_trades.csv)
+#   ledger - the paper ledger below (mock fills; use while IBKR runs with dry_run: true)
+results_source: ledger
+ledger: live_mini_l250
+
+summary_windows: [1, 5, 10, 20, all]   # past trading days in the P&L summary; "all" = since the first trade
+compare: []             # paper models shown next to the traded one: picks at ~15:58, sells after the 09:48 settle
+  # (empty since 2026-10-12: only the traded model mini_l250 sends messages; add e.g. {ledger: live_mini, label: mini} to compare)

@@ -1,0 +1,19 @@
+# Secrets (never commit): API keys, Telegram token, SEC contact. IBKR login lives in ~/ibc/config.ini.
+.env
+
+# Python environment and caches (rebuilt from requirements.txt)
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Data, logs and models: in S3 (financial/tp1/data and the daily backup), not in git
+data/
+logs/
+models/
+*.joblib
+src/src.zip
+
+# Machine-specific
+deploy/cron/crontab.active.txt
+.vscode/

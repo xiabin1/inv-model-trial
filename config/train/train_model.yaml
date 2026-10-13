@@ -1,0 +1,87 @@
+version:
+  features: v3          # combined features
+  evaluation: v3
+
+schedule:
+  train_period: [2025-06-01, 2026-04-27]
+  verification_period: [2026-04-28, 2026-09-24]
+
+model:
+  type: lightgbm
+  path: models/us_stock_classifier.joblib
+  label:
+    method: top_share   # top_share: best share of stocks per day | threshold: return > threshold
+    top_share: 0.2
+    threshold: 0.01     # used only when method is threshold
+    vol_adjust: true    # top_share ranks excess return / the stock's typical overnight move
+    vol_window: 20      # days of past overnight returns for the typical move
+  params:
+    n_estimators: 200
+    learning_rate: 0.05
+    num_leaves: 31
+    max_depth: -1
+    min_child_samples: 20
+    subsample: 1.0
+    colsample_bytree: 1.0
+    reg_alpha: 0.0
+    reg_lambda: 0.0
+    class_weight: balanced
+    random_state: 42
+    n_jobs: -1
+    verbosity: -1
+  test_share: 0.2      # last 20% of train-period days held out for the test score
+
+prediction:
+  period: verification
+  top_n: 10
+
+evaluation:
+  top_n: 10             # stocks bought per day in the strategy backtest
+  cost_per_trade: 0.001 # round trip (buy + sell), subtracted from each day's return
+
+live:                   # python -m src.live nightly | predict | retrain (see src/live.py)
+  variant: weekly_plain_label  # walk_forward variant used for the live model (retrained weekly); was weekly_rolling120 until 2026-09-30
+  model_path: models/live_classifier.joblib
+  top_n: 10            # stocks in the daily prediction list (5 from 2026-10-01 to 2026-10-02)
+  min_fresh_share: 0.9  # share of symbols that must have the bar just before the cutoff
+  min_feature_share: 0.9 # pick only stocks with >= 90% of their features (enough history; new listings wait)
+  min_listing_days: 20   # ... and traded for >= 20 sessions (new listings, spin-offs, IPOs)
+  gap_guard_max_move: 0.40 # exclude stocks whose overnight gap is split-like or beyond +-40% (unrecorded corporate action)
+  grace_seconds: 3      # wait this long after the cutoff for the last bar (Live API)
+  max_wait_seconds: 45  # give up on the stream this long after the cutoff
+
+paper:                  # mock trades (src/paper.py); ledgers in data/paper/
+  top_n: 10             # picks mock-bought each day (top 5 from 2026-10-01 to 2026-10-02)
+  report_sizes: [5, 10] # portfolios compared in `python -m src.paper report`
+  capital_per_day: 100000 # split equally across the top_n picks (10 x $10,000)
+  sim_model_path: models/paper_sim_classifier.joblib   # weekly models for `simulate`
+
+walk_forward:
+  first_test_date: 2025-12-01
+  final_holdout_from: 2026-08-01   # excluded from walk-forward tests; already seen by single-split runs
+  top_n: [10, 30, 50]
+  variants:
+    - {name: weekly_expanding, retrain_every: week, train_window: expanding}
+    - {name: monthly_expanding, retrain_every: month, train_window: expanding}
+    - {name: never, retrain_every: never, train_window: expanding}
+    - {name: weekly_rolling120, retrain_every: week, train_window: 120}
+    - {name: weekly_plain_label, retrain_every: week, train_window: expanding, vol_adjust: false}
+    - {name: weekly_rolling30, retrain_every: week, train_window: 30}
+    - {name: daily_rolling30, retrain_every: day, train_window: 30}
+    - {name: daily_rolling120_last30, retrain_every: day, train_window: 120, first_test_date: 2026-06-18}
+    - {name: daily_rolling120, retrain_every: day, train_window: 120}
+    - {name: weekly_rolling120_threshold, retrain_every: week, train_window: 120, method: threshold, threshold: 0.01}
+
+storage:
+  backend: s3
+  local:
+    root: data
+  s3:
+    bucket: portfolio-calc-platform-dev
+    prefix: financial/tp1/data
+    region: us-east-2
+  input:
+    features: features/combined
+  output:
+    evaluation: evaluation
+    predictions: predictions   # live top-N lists, <predictions>/<version.evaluation>/YYYY-MM-DD.csv

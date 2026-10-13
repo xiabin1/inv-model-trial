@@ -1,0 +1,34 @@
+# Mini profile (src/live.py PROFILES['mini']): minute features from EQUS.MINI, labels and
+# daily features from XNAS.BASIC. Copy of label_config.yaml with the differences marked 'mini'.
+version:
+  labels: mini_v1
+  raw_data: v1
+  minute_features: mini_v1   # not read: cutoff_raw below gives the entry price
+
+label:
+  # Return from day D's 15:57 price (last 1m close before the 15:58 cutoff) to the next session's open; training turns it
+  # into 0/1 (train_model.yaml: model.label).
+  field: "Ref($open, -1) / $close_cutoff - 1"
+  column: label
+
+schedule:
+  start_date: 2024-08-01
+  end_date: 2026-10-01
+
+storage:
+  backend: s3
+  local:
+    root: data
+  s3:
+    bucket: portfolio-calc-platform-dev
+    prefix: financial/tp1/data
+    region: us-east-2
+  input:
+    raw: raw/session_daily   # regular-session daily bars (python -m src.pull.session_bars)
+    minute_features: features/minutes
+    cutoff_raw:              # mini: entry price = last XNAS.BASIC 1m close before the cutoff
+      raw: raw/minutes
+      version: v1
+      cutoff_before_close: 2
+  output:
+    labels: labels

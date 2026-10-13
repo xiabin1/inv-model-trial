@@ -1,0 +1,44 @@
+# Cutoff experiment (b1558): XNAS.BASIC minute features with bars to 15:58; labels = next
+# XNAS.BASIC open / 15:57 close (labels/mini_v1, the price actually traded at 15:58). Copy of minutes_feature_config.yaml.
+version:
+  features: b1558_v1
+  raw_data: v1
+  symbols: v1
+
+features:
+  frequency: 4m         # state bar size; must divide 09:30 -> cutoff (388 min = 97 x 4m)
+  feature_set: Alpha158 # state features, read at the last bar ending at the cutoff
+  custom:
+    minutes_vwap_spread: "$close / $vwap - 1"
+    ma_spread_7_21: "Mean($close, 7) / Mean($close, 21) - 1"
+  intraday:             # formulas over one row per day of base fields (09:30 -> cutoff)
+    ret_day: "$close / $open - 1"
+    ret_gap: "$open / $prev_close - 1"
+    ret_last_30m: "$close / $close_30m - 1"
+    ret_last_60m: "$close / $close_60m - 1"
+    range_pos: "($close - $low) / ($high - $low + 1e-12)"
+    vwap_dev: "$close / $vwap - 1"
+    rvol: "$volume / Mean(Ref($volume, 1), 20)"
+    vol_intraday: "$ret_std"
+    max_drawdown_day: "$drawdown"
+
+schedule:
+  cutoff_before_close: 2    # minutes before the close -> 15:58; half days are skipped
+  lookback_days: 20         # trading days of history loaded before each day
+  workers: 4                # processes for the state formulas (live run must finish soon after the cutoff)
+  start_date: 2024-08-01
+  end_date: 2026-10-02
+
+storage:
+  backend: s3
+  local:
+    root: data
+  s3:
+    bucket: portfolio-calc-platform-dev
+    prefix: financial/tp1/data
+    region: us-east-2
+  input:
+    raw: raw/minutes
+    symbols: symbols
+  output:
+    features: features/minutes

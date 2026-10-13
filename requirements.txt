@@ -1,0 +1,17 @@
+numpy==2.4.6
+lightgbm==4.7.0
+snapshot-selenium==0.0.2
+scripts==3.0
+pyqlib==0.9.7
+pytest==9.1.1
+yfinance==1.6.0
+requests==2.34.2
+lxml==6.1.2
+databento==0.86.0
+exchange_calendars==4.13.2
+pandas==2.3.3
+pyarrow==25.0.1
+boto3==1.43.98
+PyYAML==6.0.3
+scikit-learn==1.9.0
+joblib==1.5.3
