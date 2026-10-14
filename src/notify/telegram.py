@@ -247,11 +247,25 @@ def find_chat_id() -> None:
     print(f"Chats that messaged the bot: {chats or 'none - send your bot any message in Telegram, then run this again'}")
 
 
+def alert(text: str) -> bool:
+    """Plain-text alert (job failures, gateway problems): shown as preformatted text, HTML-escaped."""
+    title, _, body = text.strip().partition("\n")
+    message = f"<b>{html.escape(title)}</b>"
+    if body.strip():
+        message += f"\n<pre>{html.escape(body.strip()[-3500:])}</pre>"
+    return send(message)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Telegram trade messages")
-    parser.add_argument("command", choices=["chat-id", "test", "summary"])
+    parser.add_argument("command", choices=["chat-id", "test", "summary", "alert"],
+                        help="alert: send the text read from standard input (first line = title)")
     args = parser.parse_args()
-    if args.command == "chat-id":
+    if args.command == "alert":
+        import sys
+
+        print("sent" if alert(sys.stdin.read()) else "not sent")
+    elif args.command == "chat-id":
         find_chat_id()
     elif args.command == "test":
         print("sent" if send("✅ portfolio-calc-data: Telegram messages are working.") else "not sent")

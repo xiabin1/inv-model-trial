@@ -97,3 +97,31 @@ def test_set_capital_rewrites_amount_and_since(tmp_path):
     capital = ibkr.load_config(path)["strategy"]["capital"]
     assert capital["amount"] == 60000 and str(capital["since"]) == "2026-11-02"
     assert "# starting money" in path.read_text()  # comments kept
+
+
+def test_sell_all_positions_sells_split_shares_and_spinoff_shares():
+    import pandas as pd
+    from src.broker import ibkr
+
+    lots = pd.Series({"AAA": 100.0, "BRK-B": 10.0, "CCC": 50.0})
+    held = {"AAA": 200.0, "BRK B": 10.0, "CCC": 30.0, "NEWCO": 33.0}  # AAA split 2:1, CCC partly filled, NEWCO spun off
+    targets, notes = ibkr.sell_targets(lots, held, sell_all=True)
+    assert targets == {"AAA": 200, "BRK-B": 10, "CCC": 30, "NEWCO": 33}
+    assert set(notes) == {"AAA", "CCC", "NEWCO"} and "not bought by the strategy" in notes["NEWCO"]
+    capped, _ = ibkr.sell_targets(lots, held, sell_all=False)
+    assert capped == {"AAA": 100, "BRK-B": 10, "CCC": 30}  # old rule: the bought lots, capped at IBKR's position
+
+
+def test_connect_refuses_another_account(monkeypatch):
+    import sys, types
+    import pytest
+    from src.broker import ibkr
+
+    class FakeIB:
+        def connect(self, *a, **k): pass
+        def managedAccounts(self): return ["DUX000001"]
+        def disconnect(self): pass
+    monkeypatch.setitem(sys.modules, "ib_async", types.SimpleNamespace(IB=FakeIB))
+    config = {"connection": {"host": "h", "port": 1, "client_id": 1, "timeout_seconds": 1, "paper_only": True, "account": "DUR262794"}}
+    with pytest.raises(RuntimeError, match="not in"):
+        ibkr.connect(config)

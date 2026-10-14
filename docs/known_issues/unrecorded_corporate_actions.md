@@ -1,6 +1,6 @@
 # Unrecorded splits and spin-offs: remaining protections
 
-**Status:** 2 and 3 done (2026-10-08); 1 open, waiting for a decision (see below).
+**Status:** 2 and 3 done (2026-10-08); 1 done for IBKR (2026-10-13, sell everything the strategy's own account holds); the paper-ledger part of 1 is open.
 
 ## Background
 
@@ -55,6 +55,11 @@ Timeline for an event with ex-date D (first trading day at the new price):
 
 ## To do
 
+- **Done 2026-10-13 (IBKR part of 1):** the strategy trades its own account (`connection.account: DUR262794`, refused if not connected),
+  and `sell.sell_all_positions: true` sells everything that account holds at the open: a split's extra shares, a spin-off's new
+  shares and leftovers; a Telegram message lists any position that differs from the strategy's buys (`sell_targets` in
+  src/broker/ibkr.py). Still open below: the paper ledger.
+
 1. **Held through a split or spin-off** (affects real IBKR orders once `dry_run: false`). Not
    implemented; the user is considering it. Points agreed so far (2026-10-08):
    - The problem: bought at 15:58, event overnight. IBKR then holds e.g. twice the shares (2:1
@@ -80,3 +85,23 @@ their ex-date.
 When the gap guard or the nightly check writes an alert, verify the event (company release /
 SEC 8-K), add it to `config/symbols/corporate_actions.yaml`, and rebuild the affected days as in
 the CTVA fix: daily and minute features from D, labels for D-1, combined data, then retrain.
+
+## Extra (>= $250M) stocks: audit 2026-10-12, open cases
+
+Audit of the 334 stocks that were ever added to the b1542_l250 / mini_l250 universe (price gaps 2024-07..2026-10 on
+raw/session_daily/l50_v1, plus SEC 8-K searches). Proposed for verification (Telegram, 2026-10-12): MSTR 2024-08-08
+split 10, WSM 2024-07-09 split 2, IBKR 2025-06-18 split 4, HDB 2025-09-08 split 2 (check the ADR ex-date). The
+spin-off cross-check (down-gap of 10%+ after a spin-off filing) gave only boilerplate matches for these volatile stocks.
+
+**To do later (the user decided to leave them for now):**
+- **B / GOLD ticker reuse**: Barrick Gold moved from GOLD to B (May 2025); the earlier "B" was another company, and
+  "GOLD" was reused later (gaps B 2025-05-12 x0.391, GOLD 2026-02-02 x2.667). Needs a `renames` entry (like FISV/FI)
+  once the exact switch dates are confirmed, not a split.
+- **WOLF 2025-09-30 (x11.1)**: Wolfspeed's exit from bankruptcy (old shares exchanged); not a normal split. Probably
+  exclude those days rather than guess a ratio.
+- **QXO 2024-07-30 (x0.183)**: no SEC match (name/ticker changed); unknown.
+- **MXL 2026-04-28 (x2.81)**: a 2026-05-21 8-K mentions a reverse stock split; possibly 1-for-3, to check.
+- Not events (news moves, no record needed): SBET 2025-06-13, CRNX 2026-07-07, and the large up-gaps of AAOI, AEHR,
+  APLD, ASST, AXTI, DJT, FCEL, FLNC, FSLY, HIMS, LUNR, MP, MTSR, PENG, PONY, QBTS, RDW, WOLF 2026-04-22.
+Until then, the +-40% training filter keeps the largest of these moves out of training; these stocks are never picked
+(training universe only), unless they are index members.

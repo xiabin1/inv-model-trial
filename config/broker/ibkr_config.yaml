@@ -7,14 +7,16 @@ connection:
   client_id: 17
   timeout_seconds: 15
   paper_only: true        # refuse to trade unless every account id starts with "DU" (IBKR paper)
+  account: DUR262794      # the strategy's own account (linked account, 2026-10-13): orders and positions use it;
+                          # refuse to trade if it is not the connected account
 
 strategy:
   profile: mini_l250      # whose 15:58 predictions are traded (src/live.py PROFILES); mini_l250 since 2026-10-12 (was b1542)
   top_n: 10               # stocks bought per day
   capital:                # money for each day's buys, split equally across top_n (whole shares only)
     mode: compound        # compound: amount + P&L of trades bought since `since` | fixed: always amount
-    amount: 50000         # starting money (set/reset with: python -m src.broker.ibkr capital 50000)
-    since: 2026-10-06     # compound counts the realized IBKR P&L of trades bought on/after this date
+    amount: 100000         # starting money (set/reset with: python -m src.broker.ibkr capital 50000)
+    since: 2026-10-12     # compound counts the realized IBKR P&L of trades bought on/after this date
   max_order_value: 15000  # safety: never send a single order above this
   order_ref: overnight-top10   # tag on every order; the client only sells what it bought with this tag
 
@@ -28,8 +30,11 @@ buy:
 sell:
   order_type: MOO         # market-on-open: sold in the next session's opening auction
   submit_at: "09:00"      # New York time (scheduled job); MOO orders must be in before the open
+  sell_all_positions: true  # the account holds only strategy positions: sell everything it holds at the open
+                            # (a split's extra shares, a spin-off's new shares, leftovers); Telegram note if it
+                            # differs from the strategy's buys. false = sell the bought lots only (capped).
 
 log:
   path: data/paper/ibkr_trades.csv   # every order and fill (local, like the paper ledgers)
 
-dry_run: true             # true: print the orders, send nothing. Set false only after a checked dry run.
+dry_run: false            # false since 2026-10-13: real orders to the PAPER account (DUR262794). true: print only, send nothing.

@@ -366,6 +366,8 @@ def predict(
         target = broker["strategy"]["profile"]
         if target not in tops:
             print(f"IBKR: not trading the {profile} picks (config/broker/ibkr_config.yaml trades {target})")
+            if PROFILES.get(target, {}).get("shadow_of") == profile:  # the traded shadow failed above: no orders today
+                raise RuntimeError(f"IBKR: the traded model {target} produced no picks, so no buy orders were sent")
         else:
             step("IBKR buy orders", lambda: ibkr.buy(day, tops[target], config=broker))
     if kind == "live":  # compared models' picks in Telegram, after the orders

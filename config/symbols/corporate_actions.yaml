@@ -71,6 +71,10 @@ actions:
   - {symbol: SPGI, date: 2026-07-01, spinoff: {child: MBGL, ratio: 1, parent_open: 397, child_open: 20.3}, verified: true, source: "S&P Global 8-K 2026-07: 1 MBGL per SPGI; ex-date opens from XNAS.BASIC"}
 
   # Proposed by the detectors (src/corporate_action_flow.py); appended below this line
+  - {symbol: HDB, date: 2025-09-08, split: 2, verified: true, found: 2026-10-12, found_by: "audit of the extra (>= $250M) stocks", source: "HDFC Bank ADR after the 1:1 bonus issue (0.503) - check the ADR ex-date"}
+  - {symbol: IBKR, date: 2025-06-18, split: 4, verified: true, found: 2026-10-12, found_by: "audit of the extra (>= $250M) stocks", source: "Interactive Brokers 4-for-1 split (0.250)"}
+  - {symbol: WSM, date: 2024-07-09, split: 2, verified: true, found: 2026-10-12, found_by: "audit of the extra (>= $250M) stocks", source: "Williams-Sonoma 2-for-1 split (0.498)"}
+  - {symbol: MSTR, date: 2024-08-08, split: 10, verified: true, found: 2026-10-12, found_by: "audit of the extra (>= $250M) stocks", source: "MicroStrategy 10-for-1 split (open/prev close 0.105)"}
   - {symbol: APTV, date: 2026-04-01, spinoff: {child: VGNT, ratio: 0.333333, parent_open: 60.16, child_open: 27.73}, verified: true, found: 2026-10-06, found_by: "EDGAR audit + price gap", source: "SEC 8-K"}
   - {symbol: BDX, date: 2026-02-10, spinoff: {child: WAT, ratio: 0.135, parent_open: 165.2, child_open: 327.82}, verified: true, found: 2026-10-06, found_by: "EDGAR audit + price gap", source: "SEC 8-K"}
   - {symbol: FTV, date: 2025-06-30, spinoff: {child: RAL, ratio: 0.333333, parent_open: 52.39, child_open: 50.02}, verified: true, found: 2026-10-06, found_by: "EDGAR audit + price gap", source: "SEC 8-K"}

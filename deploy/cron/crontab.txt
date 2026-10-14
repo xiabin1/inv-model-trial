@@ -1,52 +1,58 @@
 CRON_TZ=America/New_York
+# Jobs run through deploy/cron/run_job.sh NAME LOG 'COMMAND': project env, output to LOG, Telegram alert if a job fails
 # Symbol snapshot for today (point-in-time index members)
-0 8 * * * /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && DATE=$(date +\%Y\%m\%d) && python -m src.symbol_generate --start-date "$DATE" --end-date "$DATE" >> logs/symbol_generate.log 2>&1'
+0 8 * * * /home/ec2-user/project/portfolio-calc-data/deploy/cron/run_job.sh 'symbol_generate' logs/symbol_generate.log 'DATE=$(date +\%Y\%m\%d) && python -m src.symbol_generate --start-date "$DATE" --end-date "$DATE"'
 # Weekly: GICS sectors for the sector cap (config/symbols/sectors.csv); Telegram if an index member has none
-30 8 * * 6 /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && python -m src.symbols.sectors refresh >> logs/sectors.log 2>&1'
+30 8 * * 6 /home/ec2-user/project/portfolio-calc-data/deploy/cron/run_job.sh 'sectors refresh' logs/sectors.log 'python -m src.symbols.sectors refresh'
 # Previous session: full minute bars (published after midnight), session bars, daily/minute features, labels, combined
-30 6 * * 2-6 /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && python -m src.live nightly >> logs/live_nightly.log 2>&1'
+30 6 * * 2-6 /home/ec2-user/project/portfolio-calc-data/deploy/cron/run_job.sh 'live nightly' logs/live_nightly.log 'python -m src.live nightly'
 # Basic (v3) live prediction removed 2026-10-04: it needs the XNAS.BASIC live licence and always failed
 # Weekly refit of the basic live model (weekly_plain_label, config/train/train_model.yaml) after Saturday's nightly run
-0 9 * * 6 /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && python -m src.live retrain >> logs/live_retrain.log 2>&1'
+0 9 * * 6 /home/ec2-user/project/portfolio-calc-data/deploy/cron/run_job.sh 'live retrain' logs/live_retrain.log 'python -m src.live retrain'
 # Mini profile (EQUS.MINI minute features, XNAS.BASIC labels): after the basic nightly, which builds the shared daily data
-45 6 * * 2-6 /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && python -m src.live nightly --profile mini >> logs/live_nightly_mini.log 2>&1'
+45 6 * * 2-6 /home/ec2-user/project/portfolio-calc-data/deploy/cron/run_job.sh 'live nightly mini' logs/live_nightly_mini.log 'python -m src.live nightly --profile mini'
 # Mini live prediction: streams EQUS.MINI (live feed included in the plan) up to 15:58; with its shadow mini_l250,
 # which IBKR trades (profile in config/broker/ibkr_config.yaml; --trade only acts for the configured profile)
-56 15 * * 1-5 /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && python -m src.live predict --profile mini --trade >> logs/live_predict_mini.log 2>&1'
+56 15 * * 1-5 /home/ec2-user/project/portfolio-calc-data/deploy/cron/run_job.sh 'live predict mini trade' logs/live_predict_mini.log 'python -m src.live predict --profile mini --trade'
 # Mini weekly refit
-15 9 * * 6 /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && python -m src.live retrain --profile mini >> logs/live_retrain_mini.log 2>&1'
+15 9 * * 6 /home/ec2-user/project/portfolio-calc-data/deploy/cron/run_job.sh 'live retrain mini' logs/live_retrain_mini.log 'python -m src.live retrain --profile mini'
 # Sell prices at the 09:30 open: same-day XNAS.BASIC is 15 min delayed, so the 09:30 bar is ready ~09:46
 # (each ledger is settled even if another fails; all output goes to the log)
-48 9 * * 1-5 /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && { python -m src.paper settle --ledger late; python -m src.paper settle --ledger late_mini; python -m src.paper settle --ledger live; python -m src.paper settle --ledger live_mini; python -m src.paper settle --ledger late_b1542; python -m src.paper settle --ledger live_b1542; python -m src.paper settle --ledger late_b1542_l250; python -m src.paper settle --ledger live_b1542_l250; python -m src.paper settle --ledger late_mini_l250; python -m src.paper settle --ledger live_mini_l250; } >> logs/paper_settle.log 2>&1'
+48 9 * * 1-5 /home/ec2-user/project/portfolio-calc-data/deploy/cron/run_job.sh 'paper settle' logs/paper_settle.log 'fail=0; python -m src.paper settle --ledger late || fail=1; python -m src.paper settle --ledger late_mini || fail=1; python -m src.paper settle --ledger live || fail=1; python -m src.paper settle --ledger live_mini || fail=1; python -m src.paper settle --ledger late_b1542 || fail=1; python -m src.paper settle --ledger live_b1542 || fail=1; python -m src.paper settle --ledger late_b1542_l250 || fail=1; python -m src.paper settle --ledger live_b1542_l250 || fail=1; python -m src.paper settle --ledger late_mini_l250 || fail=1; python -m src.paper settle --ledger live_mini_l250 || fail=1; exit $fail'
 # IB Gateway (paper) through IBC on a virtual display: start at boot, restart if it stopped
 @reboot /home/ec2-user/project/portfolio-calc-data/deploy/ibkr/start_gateway.sh
 */5 * * * * /home/ec2-user/project/portfolio-calc-data/deploy/ibkr/start_gateway.sh
+# Gateway health check (API connection + account): restart if needed; Telegram if it was down or is still down
+0 6 * * 1-5 /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && python deploy/ibkr/check_gateway.py >> logs/gateway_check.log 2>&1'
+40 8 * * 1-5 /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && python deploy/ibkr/check_gateway.py >> logs/gateway_check.log 2>&1'
+0,30 9-15 * * 1-5 /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && python deploy/ibkr/check_gateway.py >> logs/gateway_check.log 2>&1'
+45 15 * * 1-5 /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && python deploy/ibkr/check_gateway.py >> logs/gateway_check.log 2>&1'
 # IBKR: MOO sells of the strategy's lots before the open (dry run until config/broker/ibkr_config.yaml dry_run: false)
-0 9 * * 1-5 /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && python -m src.broker.ibkr sell >> logs/ibkr.log 2>&1'
+0 9 * * 1-5 /home/ec2-user/project/portfolio-calc-data/deploy/cron/run_job.sh 'ibkr sell' logs/ibkr.log 'python -m src.broker.ibkr sell'
 # IBKR: record the opening-auction fills
-50 9 * * 1-5 /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && python -m src.broker.ibkr reconcile >> logs/ibkr.log 2>&1'
+50 9 * * 1-5 /home/ec2-user/project/portfolio-calc-data/deploy/cron/run_job.sh 'ibkr reconcile' logs/ibkr.log 'python -m src.broker.ibkr reconcile'
 # b1542 profile (XNAS.BASIC minute features to 15:42, delayed data ready ~15:57): nightly after basic + mini
-0 7 * * 2-6 /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && python -m src.live nightly --profile b1542 >> logs/live_nightly_b1542.log 2>&1'
+0 7 * * 2-6 /home/ec2-user/project/portfolio-calc-data/deploy/cron/run_job.sh 'live nightly b1542' logs/live_nightly_b1542.log 'python -m src.live nightly --profile b1542'
 # b1542 live prediction (~15:57:50) and IBKR buy orders at 15:58 (config/broker/ibkr_config.yaml; dry_run there)
-56 15 * * 1-5 /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && python -m src.live predict --profile b1542 --trade >> logs/live_predict_b1542.log 2>&1'
+56 15 * * 1-5 /home/ec2-user/project/portfolio-calc-data/deploy/cron/run_job.sh 'live predict b1542 trade' logs/live_predict_b1542.log 'python -m src.live predict --profile b1542 --trade'
 # b1542 weekly refit
-30 9 * * 6 /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && python -m src.live retrain --profile b1542 >> logs/live_retrain_b1542.log 2>&1'
+30 9 * * 6 /home/ec2-user/project/portfolio-calc-data/deploy/cron/run_job.sh 'live retrain b1542' logs/live_retrain_b1542.log 'python -m src.live retrain --profile b1542'
 # b1542_l250 (shadow of b1542: trained with liquid US stocks >= $250M, picks max 4 per sector): nightly data after b1542
 # ... then mini_l250 (shadow of mini, liquid US stocks >= $250M, max 3 per sector), which needs b1542_l250's lists, daily features and labels
-20 7 * * 2-6 /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && { python -m src.live nightly --profile b1542_l250 >> logs/live_nightly_b1542_l250.log 2>&1; python -m src.live nightly --profile mini_l250 >> logs/live_nightly_mini_l250.log 2>&1; }'
+20 7 * * 2-6 /home/ec2-user/project/portfolio-calc-data/deploy/cron/run_job.sh 'nightly b1542_l250 + mini_l250' logs/live_nightly_mini_l250.log 'python -m src.live nightly --profile b1542_l250 >> logs/live_nightly_b1542_l250.log 2>&1 && python -m src.live nightly --profile mini_l250'
 # b1542_l250 weekly refit
-45 9 * * 6 /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && python -m src.live retrain --profile b1542_l250 >> logs/live_retrain_b1542_l250.log 2>&1'
+45 9 * * 6 /home/ec2-user/project/portfolio-calc-data/deploy/cron/run_job.sh 'live retrain b1542_l250' logs/live_retrain_b1542_l250.log 'python -m src.live retrain --profile b1542_l250'
 # mini_l250 weekly refit
-0 10 * * 6 /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && python -m src.live retrain --profile mini_l250 >> logs/live_retrain_mini_l250.log 2>&1'
+0 10 * * 6 /home/ec2-user/project/portfolio-calc-data/deploy/cron/run_job.sh 'live retrain mini_l250' logs/live_retrain_mini_l250.log 'python -m src.live retrain --profile mini_l250'
 # Corporate actions: process Verified/Reject taps and apply them (rebuild + retrain), never 15:54-16:02
-*/15 9-17 * * 1-5 /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && python -m src.corporate_action_flow check >> logs/corporate_action_flow.log 2>&1'
-15 7 * * 2-6 /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && python -m src.corporate_action_flow check >> logs/corporate_action_flow.log 2>&1'
+*/15 9-17 * * 1-5 /home/ec2-user/project/portfolio-calc-data/deploy/cron/run_job.sh 'corporate_action_flow check' logs/corporate_action_flow.log 'python -m src.corporate_action_flow check'
+15 7 * * 2-6 /home/ec2-user/project/portfolio-calc-data/deploy/cron/run_job.sh 'corporate_action_flow check' logs/corporate_action_flow.log 'python -m src.corporate_action_flow check'
 # Every minute: record Verify / Reject taps right away and answer them (the rebuild stays in the check above)
 * * * * * /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && python -m src.corporate_action_flow ack >> logs/corporate_action_flow.log 2>&1'
 # Corporate actions still waiting for a decision (Telegram reminder)
-30 8 * * 1-5 /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && python -m src.corporate_action_flow remind >> logs/corporate_action_flow.log 2>&1'
+30 8 * * 1-5 /home/ec2-user/project/portfolio-calc-data/deploy/cron/run_job.sh 'corporate_action_flow remind' logs/corporate_action_flow.log 'python -m src.corporate_action_flow remind'
 # Corporate actions ahead of the ex-date: Nasdaq alerts -> pending entries; SEC EDGAR -> heads-up (needs SEC_USER_AGENT)
-30 7 * * 1-5 /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && python -m src.corporate_action_scan scan >> logs/corporate_action_scan.log 2>&1'
-30 18 * * 1-5 /bin/bash -lc 'cd /home/ec2-user/project/portfolio-calc-data && set -a && [[ -f .env ]] && source .env && set +a && source .venv/bin/activate && mkdir -p logs && python -m src.corporate_action_scan scan >> logs/corporate_action_scan.log 2>&1'
-# Daily backup of code, models, logs, paper ledgers and workflow state to S3 (no secrets): docs/restore_from_backup.md
-30 20 * * * /home/ec2-user/project/portfolio-calc-data/deploy/backup/backup_to_s3.sh >> /home/ec2-user/project/portfolio-calc-data/logs/backup.log 2>&1
+30 7 * * 1-5 /home/ec2-user/project/portfolio-calc-data/deploy/cron/run_job.sh 'corporate_action_scan scan' logs/corporate_action_scan.log 'python -m src.corporate_action_scan scan'
+30 18 * * 1-5 /home/ec2-user/project/portfolio-calc-data/deploy/cron/run_job.sh 'corporate_action_scan scan' logs/corporate_action_scan.log 'python -m src.corporate_action_scan scan'
+# Daily backup of models, logs, paper ledgers and workflow state to S3 (no secrets; code is in GitHub): docs/restore_from_backup.md
+30 20 * * * /home/ec2-user/project/portfolio-calc-data/deploy/cron/run_job.sh 'backup' logs/backup.log 'deploy/backup/backup_to_s3.sh'

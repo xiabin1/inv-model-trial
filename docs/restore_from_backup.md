@@ -1,13 +1,13 @@
 # Restoring on a new server
 
-Everything that exists only on the server is copied daily (20:30 ET) by
-`deploy/backup/backup_to_s3.sh` to `s3://portfolio-calc-platform-dev/financial/tp1/backup/`.
+The code is in GitHub (`git@github.com:xiabin1/inv-model-trial.git`, pushed by hand). Everything else that
+exists only on the server is copied daily (20:30 ET) by `deploy/backup/backup_to_s3.sh` to
+`s3://portfolio-calc-platform-dev/financial/tp1/backup/`.
 The market data, features, labels and predictions already live in S3 (`financial/tp1/data/`).
 
 | S3 path | Contents |
 |---|---|
-| `backup/code/latest/` | current code, configs, docs, tests, scripts, deploy files |
-| `backup/code/snapshots/YYYY-MM-DD.zip` | the code as of each day |
+| `backup/code/latest/`, `backup/code/snapshots/` | old code copies up to 2026-10-12 (no longer updated; use GitHub) |
 | `backup/models/` | live models (`*.joblib` + `.json` training summary), `history/` (every live model version, see `src/models/model_registry.py`) and archives |
 | `backup/logs/` | job logs |
 | `backup/data/paper/`, `backup/data/state/` | paper ledgers, IBKR trade log, corporate-action workflow state |
@@ -23,7 +23,7 @@ The market data, features, labels and predictions already live in S3 (`financial
 # 1. code, models, logs, ledgers, state
 mkdir -p ~/project/portfolio-calc-data && cd ~/project/portfolio-calc-data
 B=s3://portfolio-calc-platform-dev/financial/tp1/backup
-aws s3 sync $B/code/latest/ .
+git clone git@github.com:xiabin1/inv-model-trial.git .   # needs an SSH key with access to the repository
 aws s3 sync $B/models/ models/
 aws s3 sync $B/logs/ logs/
 aws s3 sync $B/data/paper/ data/paper/
@@ -45,3 +45,5 @@ crontab deploy/cron/crontab.txt
 ```
 
 The server's IAM role (or credentials) must allow S3 access to the bucket.
+
+See also docs/monitoring.md (job failure alerts, IB Gateway health check).

@@ -195,7 +195,15 @@ def connect(config: dict):
     if connection.get("paper_only", True) and not all(account.startswith("DU") for account in accounts):
         ib.disconnect()
         raise RuntimeError(f"Refusing to trade: accounts {accounts} are not all paper accounts (DU...)")
+    if connection.get("account") and connection["account"] not in accounts:
+        ib.disconnect()
+        raise RuntimeError(f"Refusing to trade: the strategy account {connection['account']} is not in {accounts}")
     return ib
+
+
+def account_of(config: dict) -> str:
+    """The strategy's own IBKR account (connection.account), '' if not pinned."""
+    return str(config["connection"].get("account") or "")
 
 
 def qualified(ib, symbols: list[str]) -> dict:
@@ -284,7 +292,7 @@ def buy(day: pd.Timestamp, picks: pd.DataFrame | None = None, send: bool | None 
                              "sent_at": f"{now():%Y-%m-%d %H:%M:%S}", "dry_run": False, "note": "contract not found"})
                 continue
             order = LimitOrder("BUY", int(pick["quantity"]), float(pick["limit_price"]), tif="DAY",
-                               orderRef=strategy["order_ref"], outsideRth=False)
+                               orderRef=strategy["order_ref"], outsideRth=False, account=account_of(config))
             trades[pick["symbol"]] = (pick, ib.placeOrder(contracts[pick["symbol"]], order), now())
         deadline = ny_time(day, config["buy"]["cancel_at"])
         while now() < deadline and any(not trade.isDone() for _, trade, _ in trades.values()):
@@ -309,8 +317,31 @@ def buy(day: pd.Timestamp, picks: pd.DataFrame | None = None, send: bool | None 
     return result
 
 
+def sell_targets(lots: pd.Series, held: dict[str, float], sell_all: bool) -> tuple[dict[str, int], dict[str, str]]:
+    """Shares to sell at the open per pipeline symbol, and a note where IBKR's position differs.
+
+    With `sell_all` (the account holds only strategy positions), everything IBKR holds is sold: a
+    split's extra shares, a spin-off's new shares and leftovers included. Otherwise the strategy's
+    lots, capped at IBKR's position."""
+    targets, notes = {}, {}
+    for symbol, quantity in lots.items():
+        position = float(held.get(ib_symbol(symbol), 0))
+        targets[symbol] = int(position if sell_all else min(quantity, position))
+        if position != quantity:
+            notes[symbol] = f"IBKR holds {position:g}, strategy bought {quantity:g}" + (" (all sold)" if sell_all else " (capped)")
+    if sell_all:
+        bought = {ib_symbol(symbol) for symbol in lots.index}
+        for name, position in held.items():
+            if name not in bought and position > 0:
+                symbol = name.replace(" ", "-")
+                targets[symbol] = int(position)
+                notes[symbol] = f"IBKR holds {position:g}, not bought by the strategy (split / spin-off / leftover; sold)"
+    return targets, notes
+
+
 def sell(day: pd.Timestamp, send: bool | None = None, config: dict | None = None) -> pd.DataFrame:
-    """Market-on-open sells of the strategy's open lots (capped at the shares IBKR shows)."""
+    """Market-on-open sells: everything the strategy's account holds (`sell.sell_all_positions`), or the
+    strategy's open lots capped at IBKR's position."""
     from ib_async import MarketOrder
 
     config = config or load_config()
@@ -321,28 +352,43 @@ def sell(day: pd.Timestamp, send: bool | None = None, config: dict | None = None
         print(f"IBKR sell {day:%Y-%m-%d}: already sent today")
         return pd.DataFrame()
     lots = open_lots(log)
-    print(f"IBKR sell {day:%Y-%m-%d} ({'SEND' if send else 'DRY RUN'}), MOO: {lots.to_dict() or 'no open lots'}")
-    if lots.empty or not send:
+    sell_all = bool(config["sell"].get("sell_all_positions", False))
+    print(f"IBKR sell {day:%Y-%m-%d} ({'SEND' if send else 'DRY RUN'}, {'all positions' if sell_all else 'strategy lots'}), "
+          f"MOO: {lots.to_dict() or 'no open lots'}")
+    if not send:
         return lots.rename("quantity").reset_index()
     ib = connect(config)
     rows = []
     try:
-        held = {position.contract.symbol: position.position for position in ib.positions()}
-        contracts = qualified(ib, list(lots.index))
-        for symbol, quantity in lots.items():
-            quantity = int(min(quantity, held.get(ib_symbol(symbol), 0)))
-            note = "" if quantity == lots[symbol] else f"capped to IBKR position {held.get(ib_symbol(symbol), 0)}"
+        account = account_of(config)
+        held = {p.contract.symbol: p.position for p in ib.positions(account) if p.position > 0}
+        targets, notes = sell_targets(lots, held, sell_all)
+        if not targets:
+            print("IBKR sell: nothing held")
+            return pd.DataFrame()
+        contracts = qualified(ib, list(targets))
+        for symbol, quantity in targets.items():
+            note = notes.get(symbol, "")
             if quantity <= 0 or symbol not in contracts:
                 rows.append({"date": day, "side": "SELL", "symbol": symbol, "quantity": 0, "order_type": "MOO",
                              "status": "not_sent", "dry_run": False, "note": note or "contract not found",
                              "sent_at": f"{now():%Y-%m-%d %H:%M:%S}"})
                 continue
-            order = MarketOrder("SELL", quantity, tif="OPG", orderRef=strategy["order_ref"])
+            order = MarketOrder("SELL", quantity, tif="OPG", orderRef=strategy["order_ref"], account=account)
             trade = ib.placeOrder(contracts[symbol], order)
             rows.append({"date": day, "side": "SELL", "symbol": symbol, "quantity": quantity, "order_type": "MOO",
                          "order_id": trade.order.orderId, "status": "submitted", "dry_run": False, "note": note,
                          "sent_at": f"{now():%Y-%m-%d %H:%M:%S}"})
         ib.sleep(3)
+        if notes:
+            try:
+                from ..notify import telegram
+
+                telegram.send("⚠️ <b>IBKR position differs from the strategy's buys</b> (sold at the open):\n"
+                              + "\n".join(f"• {symbol}: {note}" for symbol, note in notes.items())
+                              + "\nCheck for a split or spin-off (corporate actions), or a partial fill.")
+            except Exception as error:  # messages never stop trading
+                print(f"Telegram: {error}")
     finally:
         append_log(rows, config)
         ib.disconnect()
